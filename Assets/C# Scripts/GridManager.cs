@@ -23,7 +23,8 @@ namespace FirePixel.PathFinding
 
         public NativeArray<Node> nodes;
 
-        [SerializeField] private LayerMask gridUsedLayer;
+        [SerializeField] private LayerMask gridUsedLayerMask;
+        [SerializeField] private int[] movementPenaltyPerLayer;
 
         [SerializeField] private float3 gridSize;
         [SerializeField] private float3 gridPosition;
@@ -51,21 +52,30 @@ namespace FirePixel.PathFinding
 
             float3 worldBottomLeft = gridPosition - 0.5f * gridSize.x * MathLogic.Float3Right - 0.5f * gridSize.z * MathLogic.Float3Forward;
 
-            SphereCollider[] sphereColliders = new SphereCollider[1];
-
             for (int gridId = 0; gridId < totalGridSize; gridId++)
             {
                 int3 gridPos = GridPosToGridId(gridId, gridSizeX, gridSizeY);
-                float3 worldPos = worldBottomLeft + MathLogic.Float3Right * (gridPos.x * nodeSize + nodeSize * 0.5f) + MathLogic.Float3Forward * (gridPos.z * nodeSize + nodeSize * 0.5f);
+                float3 worldPos = worldBottomLeft
+                    + MathLogic.Float3Right * (gridPos.x * nodeSize + nodeSize * 0.5f)
+                    + MathLogic.Float3Up * (gridPos.y * nodeSize + nodeSize * 0.5f)
+                    + MathLogic.Float3Forward * (gridPos.z * nodeSize + nodeSize * 0.5f);
 
-                // On hit (detected obstacle) > not walkable
-                if (Physics.OverlapSphereNonAlloc(worldPos, nodeSize * 0.75f, sphereColliders, gridUsedLayer) != 0 && sphereColliders[0].GetComponent<SurfaceTypeIdentifier>)
+                SphereCollider[] spheres = new SphereCollider[1];
+
+                // On hit get movement penalty from layer
+                if (Physics.OverlapSphereNonAlloc(worldPos, nodeSize * 0.1f, spheres, gridUsedLayerMask) != 0)
                 {
-                    nodes[gridId] = new Node(gridId, false, 0);
+                    int layerId = (int)math.log2(spheres[0].gameObject.layer);
+                    int penalty = movementPenaltyPerLayer[layerId];
+
+                    // Layer 0 is unwalkable
+                    bool walkable = layerId != 0;
+
+                    nodes[gridId] = new Node(gridId, walkable, penalty);
                 }
                 else
                 {
-                    nodes[gridId] = new Node(gridId, true, 0);
+                    nodes[gridId] = new Node(gridId, false, 0);
                 }
             }
         }
@@ -132,8 +142,16 @@ namespace FirePixel.PathFinding
                 {
                     float3 nodeToCenterOffset = new float3((gridSize.x - nodeSize) * 0.5f, 0 - nodeSize * 0.5f, (gridSize.z - nodeSize) * 0.5f);
 
+                    float3 worldBottomLeft = gridPosition - 0.5f * gridSize.x * MathLogic.Float3Right - 0.5f * gridSize.z * MathLogic.Float3Forward;
+
                     for (int gridId = 0; gridId < totalGridSize; gridId++)
                     {
+                        int3 gridPos = GridPosToGridId(gridId, gridSizeX, gridSizeY);
+                        float3 worldPos = worldBottomLeft
+                        + MathLogic.Float3Right * (gridPos.x * nodeSize + nodeSize * 0.5f)
+                        + MathLogic.Float3Up * (gridPos.y * nodeSize + nodeSize * 0.5f)
+                        + MathLogic.Float3Forward * (gridPos.z * nodeSize + nodeSize * 0.5f);
+
                         Node node = nodes[gridId];
 
                         Gizmos.color = nodeLayerColors[0];
@@ -143,7 +161,7 @@ namespace FirePixel.PathFinding
                         }
 
                         // Draw cube
-                        Gizmos.DrawCube(node.GetWorldPos(gridSizeX, gridSizeY, nodeSize, nodeToCenterOffset), Vector3.one * nodeSize * 0.9f);
+                        Gizmos.DrawCube(worldPos, Vector3.one * nodeSize * 0.9f);
                     }
                 }
             }

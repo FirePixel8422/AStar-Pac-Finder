@@ -185,18 +185,6 @@ public static class ExtensionMethods
         source.Play();
     }
 
-
-    /// <returns>SurfaceType enum of the target collider, returns SurfaceType.None if there is no <see cref="SurfaceTypeIdentifier"/> attached to targetr collider</returns>
-    public static SurfaceType GetSurfaceType(this Collider collider)
-    {
-        if (collider.TryGetComponent(out SurfaceTypeIdentifier identifier))
-        {
-            return identifier.SurfaceType;
-        }
-
-        return SurfaceType.None;
-    }
-
     /// <summary>
     /// Set the active state of a Behaviour component only if the state is different from the current state.
     /// </summary>
