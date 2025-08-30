@@ -1,10 +1,11 @@
-﻿using Unity.Mathematics;
+﻿using System;
+using Unity.Mathematics;
 using UnityEngine;
 
 
 namespace FirePixel.PathFinding
 {
-    public struct Node
+    public struct Node : IEquatable<Node>, IComparable<Node>
     {
         public int gridId;
         public int parentGridId;
@@ -13,7 +14,7 @@ namespace FirePixel.PathFinding
         public float3 worldPos;
 
         [Tooltip("0 = not walkable, 1 = walkable")]
-        public byte walkable;
+        public bool walkable;
         public int movementPenalty;
         public int layerId;
 
@@ -21,11 +22,13 @@ namespace FirePixel.PathFinding
         public int hCost;
         public int FCost => gCost + hCost;
 
+        public int heapIndex;
+
 
         public Node(int gridId, bool walkable, int movementPenalty, int layerId, float3 worldPos)
         {
             this.gridId = gridId;
-            this.walkable = (byte)(walkable ? 1 : 0);
+            this.walkable = walkable;
             this.movementPenalty = movementPenalty;
             this.layerId = layerId;
             this.worldPos = worldPos;
@@ -45,6 +48,11 @@ namespace FirePixel.PathFinding
         public static bool operator != (Node a, Node b)
         {
             return !(a == b);
+        }
+
+        public bool Equals(Node other)
+        {
+            return gridId == other.gridId;
         }
 
         public override bool Equals(object obj)

@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-using Unity.Burst;
 using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
@@ -7,7 +5,6 @@ using UnityEngine;
 
 namespace FirePixel.PathFinding
 {
-    [BurstCompile]
     public class GridManager : MonoBehaviour
     {
 #pragma warning disable UDR0001
@@ -32,7 +29,7 @@ namespace FirePixel.PathFinding
         private NativeArray<Node> nodes;
 
         private int gridSizeX, gridSizeY, gridSizeZ;
-        private int totalGridSize;
+        public int TotalGridSize { get; private set; }
 
 
         private void Start()
@@ -45,13 +42,13 @@ namespace FirePixel.PathFinding
             gridSizeY = Mathf.RoundToInt(gridSize.y / nodeSize);
             gridSizeZ = Mathf.RoundToInt(gridSize.z / nodeSize);
 
-            totalGridSize = gridSizeX * gridSizeY * gridSizeZ;
+            TotalGridSize = gridSizeX * gridSizeY * gridSizeZ;
 
-            nodes = new NativeArray<Node>(totalGridSize, Allocator.Persistent);
+            nodes = new NativeArray<Node>(TotalGridSize, Allocator.Persistent);
 
             float3 worldBottomLeft = gridPosition - 0.5f * gridSize.x * MathLogic.Float3Right - 0.5f * gridSize.z * MathLogic.Float3Forward;
 
-            for (int gridId = 0; gridId < totalGridSize; gridId++)
+            for (int gridId = 0; gridId < TotalGridSize; gridId++)
             {
                 int3 gridPos = GridPosToGridId(gridId, gridSizeX, gridSizeY);
                 float3 worldPos = worldBottomLeft
@@ -95,7 +92,7 @@ namespace FirePixel.PathFinding
             return nodes[gridId];
         }
 
-        public Node NodeFromId(int gridId)
+        public Node NodeFromGridId(int gridId)
         {
             return nodes[gridId];
         }
@@ -135,7 +132,7 @@ namespace FirePixel.PathFinding
 
                 if (drawNodeColorGizmos == true)
                 {
-                    for (int gridId = 0; gridId < totalGridSize; gridId++)
+                    for (int gridId = 0; gridId < TotalGridSize; gridId++)
                     {
                         Node node = nodes[gridId];
 
