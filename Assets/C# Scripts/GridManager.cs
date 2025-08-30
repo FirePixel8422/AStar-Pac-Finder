@@ -20,20 +20,19 @@ namespace FirePixel.PathFinding
 
 
 
-
-        public NativeArray<Node> nodes;
-
         [SerializeField] private LayerMask gridUsedLayerMask;
-        [SerializeField] private int[] movementPenaltyPerLayer;
+        [SerializeField] private AstarEnvironmentObjectSO defaultNodeData;
 
         [SerializeField] private float3 gridSize;
         [SerializeField] private float3 gridPosition;
 
         [Range(0.1f, 5)]
-        public float nodeSize;
+        [SerializeField] private float nodeSize;
+
+        private NativeArray<Node> nodes;
 
         private int gridSizeX, gridSizeY, gridSizeZ;
-        public int totalGridSize;
+        private int totalGridSize;
 
 
         private void Start()
@@ -63,19 +62,14 @@ namespace FirePixel.PathFinding
                 SphereCollider[] spheres = new SphereCollider[1];
 
                 // On hit get movement penalty from layer
-                if (Physics.OverlapSphereNonAlloc(worldPos, nodeSize * 0.1f, spheres, gridUsedLayerMask) != 0)
+                if (Physics.OverlapSphereNonAlloc(worldPos, nodeSize * 0.1f, spheres, gridUsedLayerMask) != 0 && spheres[0].TryGetComponent(out AstarEnvironmentObject envObj))
                 {
-                    int layerId = (int)math.log2(spheres[0].gameObject.layer);
-                    int penalty = movementPenaltyPerLayer[layerId];
-
-                    // Layer 0 is unwalkable
-                    bool walkable = layerId != 0;
-
-                    nodes[gridId] = new Node(gridId, walkable, penalty);
+                    nodes[gridId] = new Node(gridId, envObj.Walkable, envObj.MovementPenalty, envObj.LayerId, worldPos);
                 }
+                // if no hit, use default envObjData assigned in
                 else
                 {
-                    nodes[gridId] = new Node(gridId, false, 0);
+                    nodes[gridId] = new Node(gridId, defaultNodeData.walkable, defaultNodeData.movementPenalty, defaultNodeData.layerId, worldPos);
                 }
             }
         }
@@ -83,7 +77,7 @@ namespace FirePixel.PathFinding
         {
             // Get percent along each axis
             float percentX = (worldPosition.x + gridSize.x / 2f) / gridSize.x;
-            float percentY = worldPosition.y / gridSize.y;               // Y goes 0 -> gridSize.y
+            float percentY = worldPosition.y / gridSize.y;
             float percentZ = (worldPosition.z + gridSize.z / 2f) / gridSize.z;
 
             percentX = math.clamp(percentX, 0f, 1f);
@@ -123,6 +117,7 @@ namespace FirePixel.PathFinding
 
 #if UNITY_EDITOR
 
+        [Header("DEBUG")]
         [SerializeField] private bool drawNodeColorGizmos = false;
         [SerializeField] private Color[] nodeLayerColors;
 
@@ -140,28 +135,19 @@ namespace FirePixel.PathFinding
 
                 if (drawNodeColorGizmos == true)
                 {
-                    float3 nodeToCenterOffset = new float3((gridSize.x - nodeSize) * 0.5f, 0 - nodeSize * 0.5f, (gridSize.z - nodeSize) * 0.5f);
-
-                    float3 worldBottomLeft = gridPosition - 0.5f * gridSize.x * MathLogic.Float3Right - 0.5f * gridSize.z * MathLogic.Float3Forward;
-
                     for (int gridId = 0; gridId < totalGridSize; gridId++)
                     {
-                        int3 gridPos = GridPosToGridId(gridId, gridSizeX, gridSizeY);
-                        float3 worldPos = worldBottomLeft
-                        + MathLogic.Float3Right * (gridPos.x * nodeSize + nodeSize * 0.5f)
-                        + MathLogic.Float3Up * (gridPos.y * nodeSize + nodeSize * 0.5f)
-                        + MathLogic.Float3Forward * (gridPos.z * nodeSize + nodeSize * 0.5f);
-
                         Node node = nodes[gridId];
 
-                        Gizmos.color = nodeLayerColors[0];
-                        if (node.walkable == 0)
+                        if (node.layerId >= nodeLayerColors.Length)
                         {
-                            Gizmos.color = nodeLayerColors[1];
+                            DebugLogger.LogError($"No color set for layer {node.layerId} but grid is using it. Please add a color to the GridManager script in the inspector.");
+                            return;
                         }
+                        Gizmos.color = nodeLayerColors[node.layerId];
 
                         // Draw cube
-                        Gizmos.DrawCube(worldPos, Vector3.one * nodeSize * 0.9f);
+                        Gizmos.DrawCube(node.worldPos, Vector3.one * nodeSize * 0.9f);
                     }
                 }
             }
