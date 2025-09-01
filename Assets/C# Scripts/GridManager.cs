@@ -28,8 +28,8 @@ namespace FirePixel.PathFinding
 
         private NativeArray<Node> nodes;
 
-        private int gridSizeX, gridSizeY, gridSizeZ;
-        public int TotalGridSize { get; private set; }
+        private int gridLengthX, gridLengthY, gridLengthZ;
+        public int TotalGridLength { get; private set; }
 
 
         private void Start()
@@ -38,19 +38,19 @@ namespace FirePixel.PathFinding
         }
         public void CreateGrid()
         {
-            gridSizeX = Mathf.RoundToInt(gridSize.x / nodeSize);
-            gridSizeY = Mathf.RoundToInt(gridSize.y / nodeSize);
-            gridSizeZ = Mathf.RoundToInt(gridSize.z / nodeSize);
+            gridLengthX = Mathf.RoundToInt(gridSize.x / nodeSize);
+            gridLengthY = Mathf.RoundToInt(gridSize.y / nodeSize);
+            gridLengthZ = Mathf.RoundToInt(gridSize.z / nodeSize);
 
-            TotalGridSize = gridSizeX * gridSizeY * gridSizeZ;
+            TotalGridLength = gridLengthX * gridLengthY * gridLengthZ;
 
-            nodes = new NativeArray<Node>(TotalGridSize, Allocator.Persistent);
+            nodes = new NativeArray<Node>(TotalGridLength, Allocator.Persistent);
 
             float3 worldBottomLeft = gridPosition - 0.5f * gridSize.x * MathLogic.Float3Right - 0.5f * gridSize.z * MathLogic.Float3Forward;
 
-            for (int gridId = 0; gridId < TotalGridSize; gridId++)
+            for (int gridId = 0; gridId < TotalGridLength; gridId++)
             {
-                int3 gridPos = GridPosToGridId(gridId, gridSizeX, gridSizeY);
+                int3 gridPos = GridIdToGridPos(gridId);
                 float3 worldPos = worldBottomLeft
                     + MathLogic.Float3Right * (gridPos.x * nodeSize + nodeSize * 0.5f)
                     + MathLogic.Float3Up * (gridPos.y * nodeSize + nodeSize * 0.5f)
@@ -82,12 +82,12 @@ namespace FirePixel.PathFinding
             percentZ = math.clamp(percentZ, 0f, 1f);
 
             // Convert to integer grid coordinates
-            int x = (int)math.round((gridSizeX - 1) * percentX);
-            int y = (int)math.round((gridSizeY - 1) * percentY);
-            int z = (int)math.round((gridSizeZ - 1) * percentZ);
+            int x = (int)math.round((gridLengthX - 1) * percentX);
+            int y = (int)math.round((gridLengthY - 1) * percentY);
+            int z = (int)math.round((gridLengthZ - 1) * percentZ);
 
             // Convert 3D coords to linear gridId
-            int gridId = x + y * gridSizeX + z * gridSizeX * gridSizeY;
+            int gridId = x + y * gridLengthX + z * gridLengthX * gridLengthY;
 
             return nodes[gridId];
         }
@@ -98,16 +98,16 @@ namespace FirePixel.PathFinding
         }
 
 
-        private int3 GridPosToGridId(int gridId, int gridSizeX, int gridSizeY)
+        private int3 GridIdToGridPos(int gridId)
         {
-            int x = gridId % gridSizeX;
-            int y = (gridId / gridSizeX) % gridSizeY;
-            int z = gridId / (gridSizeX * gridSizeY);
+            int x = gridId % gridLengthX;
+            int y = (gridId / gridLengthX) % gridLengthY;
+            int z = gridId / (gridLengthX * gridLengthY);
             return new int3(x, y, z);
         }
-        private int GridIdToGridPos(int3 gridPos, int gridSizeX, int gridSizeY)
+        private int GridPosToGridId(int3 gridPos)
         {
-            return gridPos.x + gridPos.y * gridSizeX + gridPos.z * gridSizeX * gridSizeY;
+            return gridPos.x + gridPos.y * gridLengthX + gridPos.z * gridLengthX * gridLengthY;
         }
 
 
@@ -132,7 +132,7 @@ namespace FirePixel.PathFinding
 
                 if (drawNodeColorGizmos == true)
                 {
-                    for (int gridId = 0; gridId < TotalGridSize; gridId++)
+                    for (int gridId = 0; gridId < TotalGridLength; gridId++)
                     {
                         Node node = nodes[gridId];
 

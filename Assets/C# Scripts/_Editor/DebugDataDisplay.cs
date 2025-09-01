@@ -99,13 +99,13 @@ public class DebugDataDisplay : MonoBehaviour
     // Manual reload method to refresh expensive stats (call from inspector button)
     public void ReloadExpensiveStats()
     {
-        gameObjectCount = FindObjectsOfType<GameObject>(true).Length;
+        gameObjectCount = FindObjectsByType<GameObject>(FindObjectsSortMode.None).Length;
 
-        componentCount = FindObjectsOfType<Component>(true).Count(c => c is not Transform);
-        activeComponentCount = FindObjectsOfType<Component>().Count(c => c is not Transform);
+        componentCount = FindObjectsByType<Component>(FindObjectsSortMode.None).Count(c => c is not Transform);
+        activeComponentCount = FindObjectsByType<Component>(FindObjectsSortMode.None).Count(c => c is not Transform);
 
         activeAudioSources = 0;
-        AudioSource[] sources = FindObjectsOfType<AudioSource>();
+        AudioSource[] sources = FindObjectsByType<AudioSource>(FindObjectsSortMode.None);
         foreach (var src in sources)
         {
             if (src.isPlaying)

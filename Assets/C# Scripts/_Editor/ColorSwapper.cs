@@ -18,7 +18,7 @@ public class ColorSwapper : MonoBehaviour
     {
         DebugLogger.Log("Swapping colors...");
 
-        Component[] sceneComponents = FindObjectsOfType<Component>(true);
+        Component[] sceneComponents = FindObjectsByType<Component>(FindObjectsSortMode.None);
 
         foreach (Component comp in sceneComponents)
         {
@@ -37,7 +37,7 @@ public class ColorSwapper : MonoBehaviour
     {
         DebugLogger.Log("Swapping colors...");
 
-        Component[] sceneComponents = FindObjectsOfType<Component>(true);
+        Component[] sceneComponents = FindObjectsByType<Component>(FindObjectsSortMode.None);
 
         foreach (Component comp in sceneComponents)
         {

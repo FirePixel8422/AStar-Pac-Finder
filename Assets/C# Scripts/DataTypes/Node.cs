@@ -8,7 +8,7 @@ namespace FirePixel.PathFinding
     public struct Node : IEquatable<Node>, IComparable<Node>
     {
         public int gridId;
-        public int parentGridId;
+        public int parentNodeId;
 
         [Tooltip("Unsure if this will be a feature")]
         public float3 worldPos;
@@ -32,11 +32,18 @@ namespace FirePixel.PathFinding
             this.movementPenalty = movementPenalty;
             this.layerId = layerId;
             this.worldPos = worldPos;
-            parentGridId = -1;
+            parentNodeId = -1;
             gCost = 0;
             hCost = 0;
+            heapIndex = 0;
         }
 
+        public void UpdateNode(int gCost, int hCost, int parentNodeId)
+        {
+            this.gCost = gCost;
+            this.hCost = hCost;
+            this.parentNodeId = parentNodeId;
+        }
 
         #region Is equal and not equal operators
 

@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections;
 using Unity.Collections;
-using Unity.Mathematics;
-using Unity.VisualScripting;
 using UnityEngine;
 
 public static class ExtensionMethods
@@ -104,7 +102,7 @@ public static class ExtensionMethods
         component = trans.GetComponentInChildren<T>(includeInactive);
         return component != null;
     }
-    public static bool TryGetComponentsInChildren<T>(this Transform trans, out T[] components, bool includeInactive = false) where T : Component
+    public static bool TryGetComponentsInChildren<T>(this Transform trans, out T[] components, bool includeInactive) where T : Component
     {
         components = trans.GetComponentsInChildren<T>(includeInactive);
 
@@ -122,14 +120,14 @@ public static class ExtensionMethods
         return component != null;
     }
 
-    public static bool TryFindObjectOfType<T>(this UnityEngine.Object obj, out T component, bool includeInactive = false) where T : Component
+    public static bool TryFindObjectOfType<T>(this UnityEngine.Object obj, out T component, FindObjectsInactive includeInactive = FindObjectsInactive.Include) where T : Component
     {
-        component = UnityEngine.Object.FindObjectOfType<T>(includeInactive);
+        component = UnityEngine.Object.FindFirstObjectByType<T>(includeInactive);
         return component != null;
     }
-    public static bool TryFindObjectsOfType<T>(this UnityEngine.Object obj, out T[] component, bool includeInactive = false) where T : Component
+    public static bool TryFindObjectsOfType<T>(this UnityEngine.Object obj, out T[] component, FindObjectsInactive includeInactive = FindObjectsInactive.Include, FindObjectsSortMode sortMode = FindObjectsSortMode.None) where T : Component
     {
-        component = UnityEngine.Object.FindObjectsOfType<T>(includeInactive);
+        component = UnityEngine.Object.FindObjectsByType<T>(includeInactive, sortMode);
         return component != null;
     }
 
