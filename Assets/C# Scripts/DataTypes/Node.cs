@@ -5,6 +5,7 @@ using UnityEngine;
 
 namespace FirePixel.PathFinding
 {
+    [System.Serializable]
     public struct Node : IEquatable<Node>, IComparable<Node>
     {
         public int gridId;

@@ -38,7 +38,7 @@ namespace FirePixel.PathFinding
 
         public bool Contains(Node node)
         {
-            return Equals(nodes[node.heapIndex], node);
+            return nodes[node.heapIndex] == node;
         }
 
         private void SortDown(Node node)
@@ -105,6 +105,11 @@ namespace FirePixel.PathFinding
 
             nodes[nodeA.heapIndex] = nodeB;
             nodes[nodeB.heapIndex] = nodeA;
+        }
+
+        public void Clear()
+        {
+            Count = 0;
         }
 
 

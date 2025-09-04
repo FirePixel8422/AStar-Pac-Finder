@@ -1,47 +1,52 @@
-﻿using System.Collections.Generic;
+﻿using System.Runtime.CompilerServices;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
-using UnityEngine;
 
 
 
 namespace FirePixel.PathFinding
 {
     [BurstCompile]
-    public struct AstarPathFindJobParallelBatched : IJobParallelForBatch
+    public struct AstarPathFindJob : IJob
     {
-        [NativeDisableParallelForRestriction]
         [NoAlias][ReadOnly] public NativeArray<Node> nodes;
 
-        [NativeDisableParallelForRestriction]
         [NoAlias][ReadOnly] public NativeArray<int3> neighbourOffsets;
-
-        [NativeDisableParallelForRestriction]
         [NoAlias] public NativeArray<Node> neighbours;
 
-        [NoAlias][ReadOnly] public int gridLengthX, gridLengthY, gridLengthZ;
+        [NoAlias][ReadOnly] public float3 gridSize;
+        [NoAlias][ReadOnly] public float3 gridPosition;
+        [NoAlias][ReadOnly] public int3 gridLength;
+        [NoAlias][ReadOnly] public float nodeSize;
+
         [NoAlias][ReadOnly] public bool allowDiagonalMovement;
 
+        [NoAlias] public NodeHeap openNodes;
+        [NoAlias] public NativeHashSet<Node> closedNodes;
+
+        [NoAlias][ReadOnly] public float3 startWorldPos;
+        [NoAlias][ReadOnly] public float3 targetWorldPos;
+
+        [NoAlias] public NativeArray<float3> path;
 
 
-        public void Execute(int startIndex, int count)
+        public void SetupPathfinderData(NativeArray<Node> nodes, NodeHeap openNodes, NativeHashSet<Node> closedNodes, float3 startWorldPos, float3 targetWorldPos, NativeArray<float3> path)
         {
-            int cIndex = startIndex;
-            for (int i = 0; i < count; i++, cIndex++)
-            {
-
-            }
+            this.nodes = nodes;
+            this.openNodes = openNodes;
+            this.closedNodes = closedNodes;
+            this.startWorldPos = startWorldPos;
+            this.targetWorldPos = targetWorldPos;
+            this.path = path;
         }
 
-        private bool TryGetPathToTarget(Node startNode, Node targetNode, NativeArray<float3> path)
+
+        public void Execute()
         {
-            int arrayMaxCapacity = gridManager.TotalGridSize;
-
-            NodeHeap openNodes = new NodeHeap(arrayMaxCapacity, Allocator.TempJob);
-            NativeHashSet<Node> closedNodes = new NativeHashSet<Node>(arrayMaxCapacity, Allocator.TempJob);
-
+            Node startNode = GetNodeFromWorldPos(startWorldPos);
+            Node targetNode = GetNodeFromWorldPos(targetWorldPos);
 
             openNodes.Add(startNode);
             while (openNodes.Count > 0)
@@ -51,9 +56,8 @@ namespace FirePixel.PathFinding
 
                 if (currentNode == targetNode)
                 {
-                    bool pathSucces = RetracePath(startNode, targetNode, path);
-
-                    return pathSucces;
+                    RetracePath(startNode, targetNode, path);
+                    return;
                 }
 
                 GetNeighbours(currentNode, neighbours, out int neighbourCount);
@@ -77,6 +81,8 @@ namespace FirePixel.PathFinding
                     {
                         neighbour.UpdateNode(newMovementCostToNeigbour, GetDistanceCost(neighbour.gridId, targetNode.gridId), currentNodeGridId);
 
+                        nodes[neighbour.gridId] = neighbour;
+
                         if (!openNodes.Contains(neighbour))
                         {
                             openNodes.Add(neighbour);
@@ -84,10 +90,12 @@ namespace FirePixel.PathFinding
                     }
                 }
             }
-
-            return false;
         }
 
+        /// <summary>
+        /// Get valid neighbour nodes of targetNode
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void GetNeighbours(Node targetNode, NativeArray<Node> neighbours, out int neighbourCount)
         {
             neighbourCount = 0;
@@ -100,9 +108,9 @@ namespace FirePixel.PathFinding
                 int3 neighbourPos = pos + neighbourOffsets[i];
 
                 // Check bounds
-                if (neighbourPos.x >= 0 && neighbourPos.x < gridLengthX &&
-                    neighbourPos.y >= 0 && neighbourPos.y < gridLengthY &&
-                    neighbourPos.z >= 0 && neighbourPos.z < gridLengthZ)
+                if (neighbourPos.x >= 0 && neighbourPos.x < gridLength.x &&
+                    neighbourPos.y >= 0 && neighbourPos.y < gridLength.y &&
+                    neighbourPos.z >= 0 && neighbourPos.z < gridLength.z)
                 {
                     neighbours[neighbourCount] = nodes[GridPosToGridId(neighbourPos)];
                     neighbourCount += 1;
@@ -113,6 +121,7 @@ namespace FirePixel.PathFinding
         /// <summary>
         /// Get int distance cost between 2 nodes A and B
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private int GetDistanceCost(int gridIdA, int gridIdB)
         {
             int3 gridPosA = GridIdToGridPos(gridIdA);
@@ -138,31 +147,18 @@ namespace FirePixel.PathFinding
                 return 10 * (distX + distZ) + 50 * distY;
             }
         }
-        /// <summary>
-        /// GridId to Node GridPos
-        /// </summary>
-        private int3 GridIdToGridPos(int gridId)
-        {
-            int x = gridId % gridLengthX;
-            int y = (gridId / gridLengthX) % gridLengthY;
-            int z = gridId / (gridLengthX * gridLengthY);
-            return new int3(x, y, z);
-        }
-        /// <summary>
-        /// GridPos to Grid Id
-        /// </summary>
-        private int GridPosToGridId(int3 gridPos)
-        {
-            return gridPos.x + gridPos.y * gridLengthX + gridPos.z * gridLengthX * gridLengthY;
-        }
 
 
-        private bool RetracePath(Node startNode, Node endNode, NativeArray<float3> path)
+        /// <summary>
+        /// Calculate path by retracing from endNode to startNode
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void RetracePath(Node startNode, Node endNode, NativeArray<float3> path)
         {
             if (endNode == startNode)
             {
                 DebugLogger.LogWarning("Target Already Reached");
-                return false;
+                return;
             }
 
             Node currentNode = endNode;
@@ -177,13 +173,12 @@ namespace FirePixel.PathFinding
 
             // Reverse path array because its now from end to start instead of from start to end
             ReversePath(path, pathNodeCount);
-
-            return true;
         }
 
         /// <summary>
         /// Reverse Array
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void ReversePath(NativeArray<float3> path, int pathNodeCount)
         {
             int left = 0;
@@ -196,5 +191,56 @@ namespace FirePixel.PathFinding
                 right--;
             }
         }
+
+
+        #region Utility Methods (Id to Pos and reversed, Get Node from World Pos)
+
+        /// <summary>
+        /// Get Node from nodes array from world position input
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public Node GetNodeFromWorldPos(float3 worldPos)
+        {
+            // Offset by half the grid size if your grid is centered at (0,0,0)
+            float3 localPos = worldPos - gridPosition + 0.5f * gridSize.x * MathLogic.Float3Right + 0.5f * gridSize.z * MathLogic.Float3Forward;
+
+            // Divide by node size to get grid coordinates
+            int x = (int)math.floor(localPos.x / nodeSize);
+            int y = (int)math.floor(localPos.y / nodeSize);
+            int z = (int)math.floor(localPos.z / nodeSize);
+
+            // Clamp to grid bounds
+            x = math.clamp(x, 0, gridLength.x - 1);
+            y = math.clamp(y, 0, gridLength.y - 1);
+            z = math.clamp(z, 0, gridLength.z - 1);
+
+            // Flatten 3D coordinates to 1D index
+            int gridId = x + y * gridLength.x + z * gridLength.x * gridLength.y;
+
+            return nodes[gridId];
+        }
+
+        /// <summary>
+        /// GridId to Node GridPos
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private int3 GridIdToGridPos(int gridId)
+        {
+            int x = gridId % gridLength.x;
+            int y = (gridId / gridLength.x) % gridLength.y;
+            int z = gridId / (gridLength.x * gridLength.y);
+            return new int3(x, y, z);
+        }
+
+        /// <summary>
+        /// GridPos to Grid Id
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private int GridPosToGridId(int3 gridPos)
+        {
+            return gridPos.x + gridPos.y * gridLength.x + gridPos.z * gridLength.x * gridLength.y;
+        }
+
+        #endregion
     }
 }

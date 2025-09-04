@@ -158,7 +158,31 @@ public static class ExtensionMethods
     /// <summary>
     /// Check if the NativeArray is created, and if so, dispose of it
     /// </summary>
-    public static void DisposeIfCreated<T>(this NativeArray<T> array) where T : struct
+    public static void DisposeIfCreated<T>(this NativeArray<T> array) where T : unmanaged
+    {
+        if (array.IsCreated)
+            array.Dispose();
+    }
+    /// <summary>
+    /// Check if the NativeArray is created, and if so, dispose of it
+    /// </summary>
+    public static void DisposeIfCreated<T>(this NativeList<T> array) where T : unmanaged
+    {
+        if (array.IsCreated)
+            array.Dispose();
+    }
+    /// <summary>
+    /// Check if the NativeArray is created, and if so, dispose of it
+    /// </summary>
+    public static void DisposeIfCreated<T>(this NativeHashSet<T> array) where T : unmanaged, IEquatable<T>
+    {
+        if (array.IsCreated)
+            array.Dispose();
+    }
+    /// <summary>
+    /// Check if the NativeArray is created, and if so, dispose of it
+    /// </summary>
+    public static void DisposeIfCreated<Tkey, TValue>(this NativeHashMap<Tkey, TValue> array) where Tkey : unmanaged, IEquatable<Tkey> where TValue : unmanaged
     {
         if (array.IsCreated)
             array.Dispose();

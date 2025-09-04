@@ -21,28 +21,52 @@ namespace FirePixel.PathFinding
         [SerializeField] private AstarEnvironmentObjectSO defaultNodeData;
 
         [SerializeField] private float3 gridSize;
+        public float3 GridSize => gridSize;
+
         [SerializeField] private float3 gridPosition;
+        public float3 GridPosition => gridPosition;
 
         [Range(0.1f, 5)]
         [SerializeField] private float nodeSize;
+        public float NodeSize => nodeSize;
+
+        [SerializeField] private int3[] pathfinderNeighbourOffsets;
+
 
         private NativeArray<Node> nodes;
+        public ref NativeArray<Node> GetNodeGrid() => ref nodes;
 
-        private int gridLengthX, gridLengthY, gridLengthZ;
+
+        private NativeArray<int3> neighbourOffsets;
+        private NativeArray<Node> neighboursStorage;
+        public void GetNeighbourData(out NativeArray<int3> neighbourOffsets, out NativeArray<Node> neighboursStorage)
+        {
+            neighbourOffsets = this.neighbourOffsets;
+            neighboursStorage = this.neighboursStorage;
+        }
+
+        public int3 GridLength { get; private set; }
         public int TotalGridLength { get; private set; }
 
 
         private void Start()
         {
             CreateGrid();
+
+            neighbourOffsets = new NativeArray<int3>(pathfinderNeighbourOffsets, Allocator.Persistent);
+            neighboursStorage = new NativeArray<Node>(neighbourOffsets.Length, Allocator.Persistent);
+
+            GhostManager.Instance.Init();
         }
+
         public void CreateGrid()
         {
-            gridLengthX = Mathf.RoundToInt(gridSize.x / nodeSize);
-            gridLengthY = Mathf.RoundToInt(gridSize.y / nodeSize);
-            gridLengthZ = Mathf.RoundToInt(gridSize.z / nodeSize);
+            GridLength = new int3(
+                Mathf.RoundToInt(gridSize.x / nodeSize),
+                Mathf.RoundToInt(gridSize.y / nodeSize),
+                Mathf.RoundToInt(gridSize.z / nodeSize));
 
-            TotalGridLength = gridLengthX * gridLengthY * gridLengthZ;
+            TotalGridLength = GridLength.x * GridLength.y * GridLength.z;
 
             nodes = new NativeArray<Node>(TotalGridLength, Allocator.Persistent);
 
@@ -70,6 +94,8 @@ namespace FirePixel.PathFinding
                 }
             }
         }
+
+
         public Node NodeFromWorldPoint(float3 worldPosition)
         {
             // Get percent along each axis
@@ -82,35 +108,33 @@ namespace FirePixel.PathFinding
             percentZ = math.clamp(percentZ, 0f, 1f);
 
             // Convert to integer grid coordinates
-            int x = (int)math.round((gridLengthX - 1) * percentX);
-            int y = (int)math.round((gridLengthY - 1) * percentY);
-            int z = (int)math.round((gridLengthZ - 1) * percentZ);
+            int x = (int)math.round((GridLength.x - 1) * percentX);
+            int y = (int)math.round((GridLength.y - 1) * percentY);
+            int z = (int)math.round((GridLength.z - 1) * percentZ);
 
             // Convert 3D coords to linear gridId
-            int gridId = x + y * gridLengthX + z * gridLengthX * gridLengthY;
+            int gridId = x + y * GridLength.x + z * GridLength.x * GridLength.y;
 
-            return nodes[gridId];
-        }
-
-        public Node NodeFromGridId(int gridId)
-        {
             return nodes[gridId];
         }
 
 
         private int3 GridIdToGridPos(int gridId)
         {
-            int x = gridId % gridLengthX;
-            int y = (gridId / gridLengthX) % gridLengthY;
-            int z = gridId / (gridLengthX * gridLengthY);
+            int x = gridId % GridLength.x;
+            int y = (gridId / GridLength.x) % GridLength.y;
+            int z = gridId / (GridLength.x * GridLength.y);
             return new int3(x, y, z);
         }
         private int GridPosToGridId(int3 gridPos)
         {
-            return gridPos.x + gridPos.y * gridLengthX + gridPos.z * gridLengthX * gridLengthY;
+            return gridPos.x + gridPos.y * GridLength.x + gridPos.z * GridLength.x * GridLength.y;
         }
 
-
+        private void OnDestroy()
+        {
+            nodes.DisposeIfCreated();
+        }
 
 #if UNITY_EDITOR
 
