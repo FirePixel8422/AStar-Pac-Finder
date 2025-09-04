@@ -20,12 +20,12 @@ public struct GhostSenses
     [SerializeField] private bool alwaysKnowPacmanLocation;
 
 
-    public void CalculateTileDetectionOffsets(ref NativeArray<int3> tileDetectionOffsets)
+    public void CalculateTileDetectionOffsets(out NativeArray<int3> tileDetectionOffsets)
     {
         // Capacity is detectRadius Srd (square box around ghost) + viewDistance - detectRadius (line in front of ghost). if detectRadius is 2, 2 tiles of the viewDistance re already accounted for
         int outerViewTileCount = math.clamp(viewDistance - detectRadius, 0, int.MaxValue);
         int capacity = detectRadius * detectRadius + outerViewTileCount;
-        
+
         tileDetectionOffsets = new NativeArray<int3>(capacity, Allocator.Persistent);
 
 

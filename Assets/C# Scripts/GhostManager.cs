@@ -21,6 +21,8 @@ public class GhostManager : MonoBehaviour
     [SerializeField] private bool updatePathAsync = true;
     [SerializeField] private float updateGhostInterval = 0.1f;
 
+    [SerializeField] private int maxPathLength = 15;
+
     [Header("Ghosts Cores > Data driven")]
     [SerializeField] private GhostData[] ghostData;
     [SerializeField] private GhostSenses[] ghostSenses;
@@ -32,7 +34,7 @@ public class GhostManager : MonoBehaviour
 
     private NativeArray<NativeArray<Node>> nodesSetsArray;
     private NativeArray<NodeHeap> openNodesSetsArray;
-    private NativeArray<NativeHashSet<Node>> closedNodesSetsArray;
+    private NativeArray<NativeHashSet<int>> closedNodeIdSetsArray;
 
     private AstarPathFindJob pathFindJob;
     private JobHandle pathFindJobHandle;
@@ -53,27 +55,26 @@ public class GhostManager : MonoBehaviour
 
         nodesSetsArray = new NativeArray<NativeArray<Node>>(ghostCount, Allocator.Persistent);
         openNodesSetsArray = new NativeArray<NodeHeap>(ghostCount, Allocator.Persistent);
-        closedNodesSetsArray = new NativeArray<NativeHashSet<Node>>(ghostCount, Allocator.Persistent);
+        closedNodeIdSetsArray = new NativeArray<NativeHashSet<int>>(ghostCount, Allocator.Persistent);
 
         for (int i = 0; i < ghostCount; i++)
         {
             Instantiate(ghostPrefab, ghostSpawnPoint.position, Quaternion.identity);
 
-            NativeArray<int3> tempOffsets = new NativeArray<int3>();
+            DebugLogger.Log("maxPathLength + 1 = " + (maxPathLength + 1));
+            ghostData[i].Init(maxPathLength + 1);
 
-            ghostSenses[i].CalculateTileDetectionOffsets(ref tempOffsets);
-            tileDetectionOffsets[i] = tempOffsets;
+            ghostSenses[i].CalculateTileDetectionOffsets(out NativeArray<int3> tempTileDetectionOffsets);
+            tileDetectionOffsets[i] = tempTileDetectionOffsets;
 
             int arrayCapacity = gridManager.TotalGridLength;
 
             nodesSetsArray[i] = new NativeArray<Node>(arrayCapacity, Allocator.Persistent);
-            DebugLogger.Log(gridManager.GetNodeGrid().Length.ToString());
-            DebugLogger.Log(nodesSetsArray[i].Length.ToString());
 
             nodesSetsArray[i].CopyFrom(gridManager.GetNodeGrid());
 
             openNodesSetsArray[i] = new NodeHeap(arrayCapacity, Allocator.Persistent);
-            closedNodesSetsArray[i] = new NativeHashSet<Node>(arrayCapacity, Allocator.Persistent);
+            closedNodeIdSetsArray[i] = new NativeHashSet<int>(arrayCapacity, Allocator.Persistent);
         }
 
         gridManager.GetNeighbourData(out NativeArray<int3> neighbourOffsets, out NativeArray<Node> neighbourStorage);
@@ -89,6 +90,7 @@ public class GhostManager : MonoBehaviour
             gridSize = gridManager.GridSize,
             gridPosition = gridManager.GridPosition,
             nodeSize = gridManager.NodeSize,
+            maxPathLength = maxPathLength,
         };
     }
 
@@ -118,15 +120,20 @@ public class GhostManager : MonoBehaviour
     /// </summary>
     private void UpdatePath()
     {
+        pathFindJobHandle = new JobHandle();
+
         for (int i = 0; i < ghostCount; i++)
         {
-            ghostData[i].currentPath.CopyFrom(ghostData[i].nextPath);
-            pathFindJob.SetupPathfinderData(nodesSetsArray[i], openNodesSetsArray[i], closedNodesSetsArray[i], ghostData[i].currentPathPosition, PacmanController.Instance.transform.position, ghostData[i].nextPath);
+            AstarPathFindJob _pathFindJob = pathFindJob;
 
-            pathFindJobHandle = JobHandle.CombineDependencies(pathFindJob.Schedule(), pathFindJobHandle);
+            ghostData[i].SetNewPath();
+
+            _pathFindJob.SetupPathfinderData(nodesSetsArray[i], openNodesSetsArray[i], closedNodeIdSetsArray[i], ghostData[i].currentPathPosition, PacmanController.Instance.transform.position, ghostData[i].nextPath);
+
+            pathFindJobHandle = i == 0 ? _pathFindJob.Schedule() : JobHandle.CombineDependencies(_pathFindJob.Schedule(), pathFindJobHandle);
         }
     }
-
+    
     private void UpdateGhosts(float deltaTime)
     {
         for (int i = 0; i < ghostCount; i++)
@@ -142,14 +149,16 @@ public class GhostManager : MonoBehaviour
 
         for (int i = 0; i < ghostCount; i++)
         {
-            tileDetectionOffsets[i].Dispose();
+            tileDetectionOffsets[i].DisposeIfCreated();
+            ghostData[i].DisposeIfCreated();
         }
         tileDetectionOffsets.DisposeIfCreated();
+
         for (int i = 0; i < ghostCount; i++)
         {
             nodesSetsArray[i].DisposeIfCreated();
-            openNodesSetsArray[i].Dispose();
-            closedNodesSetsArray[i].DisposeIfCreated();
+            openNodesSetsArray[i].DisposeIfCreated();
+            closedNodeIdSetsArray[i].DisposeIfCreated();
         }
     }
 }

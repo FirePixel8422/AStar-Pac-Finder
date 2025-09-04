@@ -113,7 +113,7 @@ namespace FirePixel.PathFinding
         }
 
 
-        public void Dispose()
+        public void DisposeIfCreated()
         {
             nodes.DisposeIfCreated();
         }

@@ -174,6 +174,14 @@ public static class ExtensionMethods
     /// <summary>
     /// Check if the NativeArray is created, and if so, dispose of it
     /// </summary>
+    public static void DisposeIfCreated<T>(this NativeReference<T> array) where T : unmanaged
+    {
+        if (array.IsCreated)
+            array.Dispose();
+    }
+    /// <summary>
+    /// Check if the NativeArray is created, and if so, dispose of it
+    /// </summary>
     public static void DisposeIfCreated<T>(this NativeHashSet<T> array) where T : unmanaged, IEquatable<T>
     {
         if (array.IsCreated)

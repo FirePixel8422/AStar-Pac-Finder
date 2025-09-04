@@ -52,27 +52,41 @@ public struct GhostData
     #endregion
 
 
+    public void Init(int maxPathLength)
+    {
+        currentPath = new NativeArray<float3>(maxPathLength, Allocator.Persistent);
+        nextPath = new NativeArray<float3>(maxPathLength, Allocator.Persistent);
+
+        nextPathPosition.y = float.MinValue;
+    }
+
+    public void SetNewPath()
+    {
+        currentPath.CopyFrom(nextPath);
+        cPathId = 0;
+        nextPathPosition = currentPath[cPathId];
+    }
+
     /// <summary>
     /// Called once per ghost
     /// </summary>
     public void UpdateGhost(float deltaTime)
     {
-        if (cPathId == currentPath.Length) return;
+        if (nextPathPosition.y == float.MinValue) return;
 
         do
         {
-            ghostTransform.position = MoveConsumeDelta(ghostTransform.position, currentPath[cPathId], ref deltaTime, out bool targetReached);
+            DebugLogger.Log(deltaTime.ToString());
+
+            ghostTransform.position = MoveConsumeDelta(ghostTransform.position, nextPathPosition, ref deltaTime, out bool targetReached);
 
             if (targetReached && cPathId < currentPath.Length - 1)
             {
                 currentPathPosition = currentPath[cPathId];
                 cPathId++;
+                nextPathPosition = currentPath[cPathId];
 
-                if (cPathId != currentPath.Length)
-                {
-                    nextPathPosition = currentPath[cPathId];
-                }
-                else
+                if (nextPathPosition.y == float.MinValue)
                 {
                     // Path is finished
                     break;
@@ -128,5 +142,12 @@ public struct GhostData
         {
             state = GhostState.Chasing;
         }
+    }
+
+
+    public void DisposeIfCreated()
+    {
+        currentPath.DisposeIfCreated();
+        nextPath.DisposeIfCreated();
     }
 }

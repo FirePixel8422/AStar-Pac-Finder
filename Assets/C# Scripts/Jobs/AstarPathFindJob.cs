@@ -11,7 +11,7 @@ namespace FirePixel.PathFinding
     [BurstCompile]
     public struct AstarPathFindJob : IJob
     {
-        [NoAlias][ReadOnly] public NativeArray<Node> nodes;
+        [NoAlias] public NativeArray<Node> nodes;
 
         [NoAlias][ReadOnly] public NativeArray<int3> neighbourOffsets;
         [NoAlias] public NativeArray<Node> neighbours;
@@ -24,19 +24,20 @@ namespace FirePixel.PathFinding
         [NoAlias][ReadOnly] public bool allowDiagonalMovement;
 
         [NoAlias] public NodeHeap openNodes;
-        [NoAlias] public NativeHashSet<Node> closedNodes;
+        [NoAlias] public NativeHashSet<int> closedNodeIds;
 
         [NoAlias][ReadOnly] public float3 startWorldPos;
         [NoAlias][ReadOnly] public float3 targetWorldPos;
 
         [NoAlias] public NativeArray<float3> path;
+        [NoAlias][ReadOnly] public int maxPathLength;
 
 
-        public void SetupPathfinderData(NativeArray<Node> nodes, NodeHeap openNodes, NativeHashSet<Node> closedNodes, float3 startWorldPos, float3 targetWorldPos, NativeArray<float3> path)
+        public void SetupPathfinderData(NativeArray<Node> nodes, NodeHeap openNodes, NativeHashSet<int> closedNodeIds, float3 startWorldPos, float3 targetWorldPos, NativeArray<float3> path)
         {
             this.nodes = nodes;
             this.openNodes = openNodes;
-            this.closedNodes = closedNodes;
+            this.closedNodeIds = closedNodeIds;
             this.startWorldPos = startWorldPos;
             this.targetWorldPos = targetWorldPos;
             this.path = path;
@@ -52,7 +53,7 @@ namespace FirePixel.PathFinding
             while (openNodes.Count > 0)
             {
                 Node currentNode = openNodes.RemoveFirstSwapBack();
-                closedNodes.Add(currentNode);
+                closedNodeIds.Add(currentNode.gridId);
 
                 if (currentNode == targetNode)
                 {
@@ -66,7 +67,7 @@ namespace FirePixel.PathFinding
                 {
                     Node neighbour = neighbours[i];
 
-                    if (neighbour.walkable == false || closedNodes.Contains(neighbour))
+                    if (neighbour.walkable == false || closedNodeIds.Contains(neighbour.gridId))
                     {
                         continue;
                     }
@@ -164,7 +165,7 @@ namespace FirePixel.PathFinding
             Node currentNode = endNode;
             int pathNodeCount = 0;
 
-            while (currentNode != startNode)
+            while (currentNode != startNode && pathNodeCount != maxPathLength)
             {
                 path[pathNodeCount++] = currentNode.worldPos;
 
@@ -173,6 +174,9 @@ namespace FirePixel.PathFinding
 
             // Reverse path array because its now from end to start instead of from start to end
             ReversePath(path, pathNodeCount);
+
+            // Mark last node as end of path
+            path[pathNodeCount] = new float3(0, float.MinValue, 0);
         }
 
         /// <summary>
