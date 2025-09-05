@@ -46,18 +46,6 @@ namespace FirePixel.PathFinding
             this.parentNodeId = parentNodeId;
         }
 
-        #region Is equal and not equal operators
-
-        public static bool operator == (Node a, Node b)
-        {
-            return a.gridId == b.gridId;
-        }
-
-        public static bool operator != (Node a, Node b)
-        {
-            return !(a == b);
-        }
-
         public bool Equals(Node other)
         {
             return gridId == other.gridId;
@@ -67,12 +55,10 @@ namespace FirePixel.PathFinding
         {
             if (obj is Node other)
             {
-                return this == other;
+                return Equals(other);
             }
             return false;
         }
-
-        #endregion
 
 
         public int CompareTo(Node nodeToCompare)

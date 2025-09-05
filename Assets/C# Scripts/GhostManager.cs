@@ -2,6 +2,7 @@ using FirePixel.PathFinding;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
+using Unity.VisualScripting.Antlr3.Runtime.Tree;
 using UnityEngine;
 
 
@@ -33,7 +34,7 @@ public class GhostManager : MonoBehaviour
     private NativeArray<NativeArray<int3>> tileDetectionOffsets;
 
     private NativeArray<NativeArray<Node>> nodesSetsArray;
-    private NativeArray<NodeHeap> openNodesSetsArray;
+    private NativeArray<NativeArray<Node>> openNodesSetsArray;
     private NativeArray<NativeHashSet<int>> closedNodeIdSetsArray;
 
     private AstarPathFindJob pathFindJob;
@@ -54,7 +55,7 @@ public class GhostManager : MonoBehaviour
         tileDetectionOffsets = new NativeArray<NativeArray<int3>>(ghostCount, Allocator.Persistent);
 
         nodesSetsArray = new NativeArray<NativeArray<Node>>(ghostCount, Allocator.Persistent);
-        openNodesSetsArray = new NativeArray<NodeHeap>(ghostCount, Allocator.Persistent);
+        openNodesSetsArray = new NativeArray<NativeArray<Node>>(ghostCount, Allocator.Persistent);
         closedNodeIdSetsArray = new NativeArray<NativeHashSet<int>>(ghostCount, Allocator.Persistent);
 
         for (int i = 0; i < ghostCount; i++)
@@ -69,10 +70,9 @@ public class GhostManager : MonoBehaviour
             int arrayCapacity = gridManager.TotalGridLength;
 
             nodesSetsArray[i] = new NativeArray<Node>(arrayCapacity, Allocator.Persistent);
-
             nodesSetsArray[i].CopyFrom(gridManager.GetNodeGrid());
 
-            openNodesSetsArray[i] = new NodeHeap(arrayCapacity, Allocator.Persistent);
+            openNodesSetsArray[i] = new NativeArray<Node>(arrayCapacity, Allocator.Persistent);
             closedNodeIdSetsArray[i] = new NativeHashSet<int>(arrayCapacity, Allocator.Persistent);
         }
 
@@ -90,6 +90,7 @@ public class GhostManager : MonoBehaviour
             gridPosition = gridManager.GridPosition,
             nodeSize = gridManager.NodeSize,
             maxPathLength = maxPathLength,
+            
         };
     }
 
@@ -119,18 +120,19 @@ public class GhostManager : MonoBehaviour
     /// </summary>
     private void UpdatePath()
     {
-        pathFindJobHandle = new JobHandle();
+        NativeArray<JobHandle> jobHandles = new NativeArray<JobHandle>(ghostCount, Allocator.Temp);
 
         for (int i = 0; i < ghostCount; i++)
         {
-            AstarPathFindJob _pathFindJob = pathFindJob;
-
             ghostData[i].SetNewPath();
 
-            _pathFindJob.SetupPathfinderData(nodesSetsArray[i], openNodesSetsArray[i], closedNodeIdSetsArray[i], ghostData[i].currentPathPosition, PacmanController.Instance.transform.position, ghostData[i].nextPath);
+            pathFindJob.SetupPathfinderData(nodesSetsArray[i], openNodesSetsArray[i], closedNodeIdSetsArray[i], ghostData[i].currentPathPosition, PacmanController.Instance.transform.position, ghostData[i].nextPath);
 
-            pathFindJobHandle = i == 0 ? _pathFindJob.Schedule() : JobHandle.CombineDependencies(_pathFindJob.Schedule(), pathFindJobHandle);
+            jobHandles[i] = pathFindJob.Schedule();
         }
+
+        pathFindJobHandle = JobHandle.CombineDependencies(jobHandles);
+        jobHandles.Dispose();
     }
     
     private void UpdateGhosts(float deltaTime)
@@ -144,20 +146,26 @@ public class GhostManager : MonoBehaviour
 
     private void OnDestroy()
     {
-        pathFindJobHandle.Complete();
+        // Complete any running jobs first
+        if (pathFindJobHandle.IsCompleted == false)
+            pathFindJobHandle.Complete();
 
+        // Dispose all GhostData NativeArrays
         for (int i = 0; i < ghostCount; i++)
         {
-            tileDetectionOffsets[i].DisposeIfCreated();
             ghostData[i].DisposeIfCreated();
-        }
-        tileDetectionOffsets.DisposeIfCreated();
 
-        for (int i = 0; i < ghostCount; i++)
-        {
+            tileDetectionOffsets[i].DisposeIfCreated();
             nodesSetsArray[i].DisposeIfCreated();
+
             openNodesSetsArray[i].DisposeIfCreated();
+
             closedNodeIdSetsArray[i].DisposeIfCreated();
         }
+
+        tileDetectionOffsets.DisposeIfCreated();
+        nodesSetsArray.DisposeIfCreated();
+        openNodesSetsArray.DisposeIfCreated();
+        closedNodeIdSetsArray.DisposeIfCreated();
     }
 }

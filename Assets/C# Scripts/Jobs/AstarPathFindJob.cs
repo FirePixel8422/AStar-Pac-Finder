@@ -1,8 +1,11 @@
 ﻿using System.Runtime.CompilerServices;
 using Unity.Burst;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
+using Unity.Jobs.LowLevel.Unsafe;
 using Unity.Mathematics;
+using UnityEditor.ShaderGraph.Internal;
 
 
 
@@ -23,7 +26,7 @@ namespace FirePixel.PathFinding
 
         [NoAlias][ReadOnly] public bool allowDiagonalMovement;
 
-        [NoAlias] public NodeHeap openNodes;
+        [NoAlias] public NativeArray<Node> openNodes;
         [NoAlias] public NativeHashSet<int> closedNodeIds;
 
         [NoAlias][ReadOnly] public float3 startWorldPos;
@@ -33,7 +36,7 @@ namespace FirePixel.PathFinding
         [NoAlias][ReadOnly] public int maxPathLength;
 
 
-        public void SetupPathfinderData(NativeArray<Node> nodes, NodeHeap openNodes, NativeHashSet<int> closedNodeIds, float3 startWorldPos, float3 targetWorldPos, NativeArray<float3> path)
+        public void SetupPathfinderData(NativeArray<Node> nodes, NativeArray<Node> openNodes, NativeHashSet<int> closedNodeIds, float3 startWorldPos, float3 targetWorldPos, NativeArray<float3> path)
         {
             this.nodes = nodes;
             this.openNodes = openNodes;
@@ -41,23 +44,38 @@ namespace FirePixel.PathFinding
             this.startWorldPos = startWorldPos;
             this.targetWorldPos = targetWorldPos;
             this.path = path;
+
+            DebugLogger.Log($"Pathfinder Setup Complete. Nodes Length: {nodes.Length}, Open Nodes Max Length: {(openNodes.IsCreated ? openNodes.Length.ToString() : "Not Created")}, Closed Node Ids Max Length: {(closedNodeIds.IsCreated ? closedNodeIds.Capacity.ToString() : "Not Created")}");
         }
 
 
         public void Execute()
         {
+            int openNodeCount = 0;
+
             Node startNode = GetNodeFromWorldPos(startWorldPos);
             Node targetNode = GetNodeFromWorldPos(targetWorldPos);
 
-            openNodes.Add(startNode);
-            while (openNodes.Count > 0)
+            NodeHeapBurst.Add(ref openNodes, ref openNodeCount, ref startNode);
+
+            nodes[startNode.gridId] = startNode;
+
+            int maxTries = nodes.Length * nodes.Length;
+            int cTries = 0;
+
+            while (openNodeCount > 0 && cTries < maxTries)
             {
-                Node currentNode = openNodes.RemoveFirstSwapBack();
+                cTries += 1;
+
+                Node currentNode = NodeHeapBurst.RemoveFirstSwapBack(ref openNodes, ref openNodeCount);
                 closedNodeIds.Add(currentNode.gridId);
 
-                if (currentNode == targetNode)
+                nodes[currentNode.gridId] = currentNode;
+
+                if (currentNode.gridId == targetNode.gridId)
                 {
                     RetracePath(startNode, targetNode, path);
+
                     return;
                 }
 
@@ -77,20 +95,23 @@ namespace FirePixel.PathFinding
                     int neigbourDist = GetDistanceCost(currentNodeGridId, neighbour.gridId);
                     int newMovementCostToNeigbour = currentNode.gCost + neigbourDist;
 
+                    bool isNeighbourInOpenNodes = NodeHeapBurst.Contains(openNodes, neighbour, openNodeCount);
 
-                    if (newMovementCostToNeigbour < neighbour.gCost || !openNodes.Contains(neighbour))
+                    if (newMovementCostToNeigbour < neighbour.gCost || isNeighbourInOpenNodes == false)
                     {
                         neighbour.UpdateNode(newMovementCostToNeigbour, GetDistanceCost(neighbour.gridId, targetNode.gridId), currentNodeGridId);
 
-                        nodes[neighbour.gridId] = neighbour;
-
-                        if (!openNodes.Contains(neighbour))
+                        if (isNeighbourInOpenNodes == false)
                         {
-                            openNodes.Add(neighbour);
+                            NodeHeapBurst.Add(ref openNodes, ref openNodeCount, ref neighbour);
                         }
+
+                        nodes[neighbour.gridId] = neighbour;
                     }
                 }
             }
+
+            DebugLogger.Log("Job failed");
         }
 
         /// <summary>
@@ -153,10 +174,10 @@ namespace FirePixel.PathFinding
         /// <summary>
         /// Calculate path by retracing from endNode to startNode
         /// </summary>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void RetracePath(Node startNode, Node endNode, NativeArray<float3> path)
         {
-            if (endNode == startNode)
+            if (endNode.gridId == startNode.gridId)
             {
                 DebugLogger.LogWarning("Target Already Reached");
                 return;
@@ -165,7 +186,7 @@ namespace FirePixel.PathFinding
             Node currentNode = endNode;
             int pathNodeCount = 0;
 
-            while (currentNode != startNode && pathNodeCount != maxPathLength)
+            while (currentNode.gridId != startNode.gridId && pathNodeCount != maxPathLength && currentNode.parentNodeId != -1)
             {
                 path[pathNodeCount++] = currentNode.worldPos;
 

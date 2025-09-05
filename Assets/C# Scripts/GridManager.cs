@@ -95,30 +95,6 @@ namespace FirePixel.PathFinding
             }
         }
 
-
-        public Node NodeFromWorldPoint(float3 worldPosition)
-        {
-            // Get percent along each axis
-            float percentX = (worldPosition.x + gridSize.x / 2f) / gridSize.x;
-            float percentY = worldPosition.y / gridSize.y;
-            float percentZ = (worldPosition.z + gridSize.z / 2f) / gridSize.z;
-
-            percentX = math.clamp(percentX, 0f, 1f);
-            percentY = math.clamp(percentY, 0f, 1f);
-            percentZ = math.clamp(percentZ, 0f, 1f);
-
-            // Convert to integer grid coordinates
-            int x = (int)math.round((GridLength.x - 1) * percentX);
-            int y = (int)math.round((GridLength.y - 1) * percentY);
-            int z = (int)math.round((GridLength.z - 1) * percentZ);
-
-            // Convert 3D coords to linear gridId
-            int gridId = x + y * GridLength.x + z * GridLength.x * GridLength.y;
-
-            return nodes[gridId];
-        }
-
-
         private int3 GridIdToGridPos(int gridId)
         {
             int x = gridId % GridLength.x;
@@ -131,10 +107,19 @@ namespace FirePixel.PathFinding
             return gridPos.x + gridPos.y * GridLength.x + gridPos.z * GridLength.x * GridLength.y;
         }
 
+
         private void OnDestroy()
         {
-            nodes.DisposeIfCreated();
+            if (nodes.IsCreated)
+                nodes.Dispose();
+
+            if (neighbourOffsets.IsCreated)
+                neighbourOffsets.Dispose();
+
+            if (neighboursStorage.IsCreated)
+                neighboursStorage.Dispose();
         }
+
 
 #if UNITY_EDITOR
 

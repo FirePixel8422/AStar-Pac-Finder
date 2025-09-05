@@ -96,7 +96,7 @@ public struct GhostData
                 }
             }
         }
-        while(deltaTime > 0 && index != 10);
+        while(deltaTime > 0 && index >= 10);
     }
 
     private float3 MoveConsumeDelta(float3 a, float3 b, ref float deltaTime, out bool targetReached)
@@ -150,7 +150,9 @@ public struct GhostData
 
     public void DisposeIfCreated()
     {
-        currentPath.DisposeIfCreated();
-        nextPath.DisposeIfCreated();
+        if (currentPath.IsCreated)
+            currentPath.Dispose();
+        if (nextPath.IsCreated)
+            nextPath.Dispose();
     }
 }

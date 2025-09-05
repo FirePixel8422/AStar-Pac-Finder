@@ -7,10 +7,13 @@ namespace FirePixel.PathFinding
     {
         private NativeArray<Node> nodes;
         public int Count { get; private set; }
+        public int Capacity { get; private set; }
+        public bool IsCreated => nodes.IsCreated;
 
         public NodeHeap(int maxHeapSize, Allocator allocator)
         {
             nodes = new NativeArray<Node>(maxHeapSize, allocator);
+            Capacity = maxHeapSize;
             Count = 0;
         }
 
@@ -38,7 +41,7 @@ namespace FirePixel.PathFinding
 
         public bool Contains(Node node)
         {
-            return nodes[node.heapIndex] == node;
+            return nodes[node.heapIndex].gridId == node.gridId;
         }
 
         private void SortDown(Node node)
