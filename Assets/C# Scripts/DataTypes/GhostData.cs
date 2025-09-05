@@ -52,12 +52,14 @@ public struct GhostData
     #endregion
 
 
-    public void Init(int maxPathLength)
+    public void Init(int maxPathLength, Transform ghostTransform)
     {
         currentPath = new NativeArray<float3>(maxPathLength, Allocator.Persistent);
         nextPath = new NativeArray<float3>(maxPathLength, Allocator.Persistent);
 
         nextPathPosition.y = float.MinValue;
+
+        this.ghostTransform = ghostTransform;
     }
 
     public void SetNewPath()
@@ -74,9 +76,10 @@ public struct GhostData
     {
         if (nextPathPosition.y == float.MinValue) return;
 
+        int index = 0;
         do
         {
-            DebugLogger.Log(deltaTime.ToString());
+            index++;
 
             ghostTransform.position = MoveConsumeDelta(ghostTransform.position, nextPathPosition, ref deltaTime, out bool targetReached);
 
@@ -93,7 +96,7 @@ public struct GhostData
                 }
             }
         }
-        while(deltaTime > 0);
+        while(deltaTime > 0 && index != 10);
     }
 
     private float3 MoveConsumeDelta(float3 a, float3 b, ref float deltaTime, out bool targetReached)

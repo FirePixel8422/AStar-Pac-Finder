@@ -59,10 +59,9 @@ public class GhostManager : MonoBehaviour
 
         for (int i = 0; i < ghostCount; i++)
         {
-            Instantiate(ghostPrefab, ghostSpawnPoint.position, Quaternion.identity);
+            GameObject ghost = Instantiate(ghostPrefab, ghostSpawnPoint.position, Quaternion.identity);
 
-            DebugLogger.Log("maxPathLength + 1 = " + (maxPathLength + 1));
-            ghostData[i].Init(maxPathLength + 1);
+            ghostData[i].Init(maxPathLength + 1, ghost.transform);
 
             ghostSenses[i].CalculateTileDetectionOffsets(out NativeArray<int3> tempTileDetectionOffsets);
             tileDetectionOffsets[i] = tempTileDetectionOffsets;
